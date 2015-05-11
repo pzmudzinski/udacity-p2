@@ -4,24 +4,45 @@
 #
 
 import psycopg2
+from psycopg2.extensions import AsIs
 
+table_matches = "matches"
+table_players = "players"
+
+column_player_id = "id"
+column_match_id = "id"
+column_name = "name"
+column_p1 = "p1"
+column_p2 = "p2"
+column_winner = "winner"
+
+view_player_standings = "player_standings"
 
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
 
+def executeAndCloseConnection(statement):
+    connection = connect()
+    cursor = connection.cursor()
+    cursor.execute(statement)
+    closeConnection(connection)
 
 def deleteMatches():
     """Remove all the match records from the database."""
-
+    deleteTable(table_matches)
 
 def deletePlayers():
     """Remove all the player records from the database."""
-
+    deleteTable(table_players)
 
 def countPlayers():
     """Returns the number of players currently registered."""
+    return countOfRowsInTable(table_players)
 
+def countMatches():
+    """Returns the number of matches played."""
+    return countOfRowsInTable(table_matches)
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
@@ -32,6 +53,10 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
+    connection = connect()
+    cursor = connection.cursor()
+    cursor.execute("INSERT INTO %s (%s) VALUES(%s);", (AsIs(table_players), AsIs(column_name), name))
+    closeConnection(connection)
 
 
 def playerStandings():
@@ -47,7 +72,12 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-
+    connection = connect()
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM %s;", (AsIs(view_player_standings),))
+    results = cursor.fetchall()
+    closeConnection(connection)
+    return results
 
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
@@ -56,7 +86,14 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
- 
+    connection = connect()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("INSERT INTO %s (%s,%s,%s) VALUES(%s, %s, %s);",
+                   (AsIs(table_matches), AsIs(column_p1), AsIs(column_p2), AsIs(column_winner), winner, loser, winner))
+    except psycopg2.IntegrityError as e:
+        print "ERROR: couldn't report match \n %s" % e
+    closeConnection(connection)
  
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -73,5 +110,32 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
+    standings = playerStandings()
+    pairs = []
 
+    # is that logic supposed to be inside SQL statement?
+    for i in range(0, len(standings), 2):
+        # takes adjacent players from standings and pack them into tuple
+        player1 = standings[i]
+        player2 = standings[i+1]
+        pairs.append((player1[0], player1[2], player2[0], player2[1]))
 
+    return pairs
+
+def closeConnection(connection):
+    connection.commit()
+    connection.close()
+
+def deleteTable(tableName):
+    connection = connect()
+    cursor = connection.cursor()
+    cursor.execute("DELETE FROM %s;", (AsIs(tableName),))
+    closeConnection(connection)
+
+def countOfRowsInTable(tableName):
+    connection = connect()
+    cursor = connection.cursor()
+    cursor.execute("SELECT COUNT(*) FROM %s;", (AsIs(tableName),))
+    rowOne = cursor.fetchone()
+    closeConnection(connection)
+    return rowOne[0]

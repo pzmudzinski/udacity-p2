@@ -124,6 +124,22 @@ def testPairings():
             "After one match, players with one win should be paired.")
     print "8. After one match, players with one win are paired."
 
+def testCannotReportMatchWithTwoIdenticalIDs():
+    deleteMatches()
+    deletePlayers()
+    registerPlayer("Twilight Sparkle")
+    standings = playerStandings()
+    id = standings[0][0]
+
+    print "id is %s" % id
+    reportMatch(id, id)
+
+    numberOfMatches = countMatches()
+
+    if numberOfMatches != 0:
+        raise ValueError("Match with two identical IDs shouldn't be reported.")
+
+    print "9. Invalid match report wasn't added to DB."
 
 if __name__ == '__main__':
     testDeleteMatches()
@@ -134,6 +150,7 @@ if __name__ == '__main__':
     testStandingsBeforeMatches()
     testReportMatches()
     testPairings()
+    testCannotReportMatchWithTwoIdenticalIDs()
     print "Success!  All tests pass!"
 
 
