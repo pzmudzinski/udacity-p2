@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# 
+#
 # tournament.py -- implementation of a Swiss-system tournament
 #
 
@@ -18,52 +18,60 @@ column_winner = "winner"
 
 view_player_standings = "player_standings"
 
+
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
 
-def executeAndCloseConnection(statement):
+
+def executeAndCloseConnection(statement, parameters):
     connection = connect()
     cursor = connection.cursor()
-    cursor.execute(statement)
+    cursor.execute(statement, parameters)
     closeConnection(connection)
+
 
 def deleteMatches():
     """Remove all the match records from the database."""
     deleteTable(table_matches)
 
+
 def deletePlayers():
     """Remove all the player records from the database."""
     deleteTable(table_players)
+
 
 def countPlayers():
     """Returns the number of players currently registered."""
     return countOfRowsInTable(table_players)
 
+
 def countMatches():
     """Returns the number of matches played."""
     return countOfRowsInTable(table_matches)
 
+
 def registerPlayer(name):
     """Adds a player to the tournament database.
-  
+
     The database assigns a unique serial id number for the player.  (This
     should be handled by your SQL database schema, not in your Python code.)
-  
+
     Args:
       name: the player's full name (need not be unique).
     """
     connection = connect()
     cursor = connection.cursor()
-    cursor.execute("INSERT INTO %s (%s) VALUES(%s);", (AsIs(table_players), AsIs(column_name), name))
+    cursor.execute("INSERT INTO %s (%s) VALUES(%s);",
+                   (AsIs(table_players), AsIs(column_name), name))
     closeConnection(connection)
 
 
 def playerStandings():
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place,
+    or a player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -79,6 +87,7 @@ def playerStandings():
     closeConnection(connection)
     return results
 
+
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
 
@@ -89,20 +98,24 @@ def reportMatch(winner, loser):
     connection = connect()
     cursor = connection.cursor()
     try:
-        cursor.execute("INSERT INTO %s (%s,%s,%s) VALUES(%s, %s, %s);",
-                   (AsIs(table_matches), AsIs(column_p1), AsIs(column_p2), AsIs(column_winner), winner, loser, winner))
+        cursor.execute(
+            "INSERT INTO %s (%s,%s,%s) VALUES(%s, %s, %s);",
+            (AsIs(table_matches),
+             AsIs(column_p1), AsIs(column_p2), AsIs(column_winner),
+             winner, loser, winner))
     except psycopg2.IntegrityError as e:
         print "ERROR: couldn't report match \n %s" % e
     closeConnection(connection)
- 
+
+
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
-  
+
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
     to him or her in the standings.
-  
+
     Returns:
       A list of tuples, each of which contains (id1, name1, id2, name2)
         id1: the first player's unique id
@@ -117,20 +130,20 @@ def swissPairings():
     for i in range(0, len(standings), 2):
         # takes adjacent players from standings and pack them into tuple
         player1 = standings[i]
-        player2 = standings[i+1]
-        pairs.append((player1[0], player1[2], player2[0], player2[1]))
+        player2 = standings[i + 1]
+        pairs.append((player1[0], player1[1], player2[0], player2[1]))
 
     return pairs
+
 
 def closeConnection(connection):
     connection.commit()
     connection.close()
 
+
 def deleteTable(tableName):
-    connection = connect()
-    cursor = connection.cursor()
-    cursor.execute("DELETE FROM %s;", (AsIs(tableName),))
-    closeConnection(connection)
+    executeAndCloseConnection("DELETE FROM %s;", (AsIs(tableName),))
+
 
 def countOfRowsInTable(tableName):
     connection = connect()
